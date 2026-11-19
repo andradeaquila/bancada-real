@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bancada Real: Simulador de Manutenção</title>
+<style>
+/* ===== Tokens (grafite + azul-ardósia + âmbar/verde-terminal) ===== */
+:root{color-scheme:dark;--bg:#1a1e23;--pn:#242a32;--ln:#3b4755;--sl:#5d7b99;--am:#f5a524;--gr:#5dffa0;--tx:#e8eef4;--mu:#9fb0c0;--bad:#ff7b7b;--ok:#5dffa0;--btn:#31404f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html[data-hc]{--bg:#000;--pn:#000;--ln:#fff;--sl:#8fd0ff;--am:#ffe600;--gr:#00ff6a;--tx:#fff;--mu:#fff;--btn:#000;--bad:#ff8080}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;padding:.7rem 1rem;border-bottom:2px solid var(--ln);background:var(--pn)}
+h1{font:700 1.2rem/1.2 "Courier New",monospace;margin:0;color:var(--am)}
+h2{margin:.2rem 0 .6rem;font-size:1.25rem}h3{margin:.2rem 0;font-size:1rem;color:var(--sl)}
+html[data-hc] h3{color:var(--am)}
+#stats{display:flex;gap:1rem;font-weight:700}#stats span{color:var(--gr)}
+.bar{display:flex;gap:.4rem;flex-wrap:wrap}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--btn);border:2px solid var(--ln);border-radius:6px;padding:.5rem .8rem;cursor:pointer;min-height:44px}
+button:hover:not(:disabled){border-color:var(--am)}button:disabled{opacity:.45;cursor:not-allowed}
+button.pri{background:var(--am);color:#1a1e23;border-color:var(--am);font-weight:700}
+button[aria-pressed=true]{background:var(--sl);color:#0b1117;border-color:var(--sl)}
+:focus-visible{outline:3px solid var(--am);outline-offset:2px}
+input,select,textarea{background:#12161b;border:2px solid var(--ln);border-radius:6px;padding:.5rem;width:100%}
+html[data-hc] input,html[data-hc] select,html[data-hc] textarea{background:#000}
+label{display:block;margin:.6rem 0 .2rem;font-weight:700}
+main{max-width:1200px;margin:auto;padding:1rem}
+.card{background:var(--pn);border:2px solid var(--ln);border-radius:8px;padding:1rem;margin-bottom:1rem}
+.grid{display:grid;gap:1rem;grid-template-columns:290px 1fr}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.case{display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap}
+.chip{border:1px solid var(--ln);border-radius:99px;padding:.1rem .6rem;font-size:.85rem}
+.chip.done{color:var(--ok);border-color:var(--ok)}
+svg{width:100%;height:auto;background:#10151a;border:2px solid var(--ln);border-radius:8px;display:block}
+.comp{cursor:pointer}.comp:hover *,.comp.sel *{stroke:var(--am)!important}
+.fine{display:none}svg.zoomed .fine{display:inline}
+#wave{fill:none;stroke:var(--am);stroke-width:3;opacity:0}#wave.on{opacity:1}
+#led{fill:#444}#led.on{fill:var(--am)}
+.tools{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0}
+.tools h3{width:100%;margin:.4rem 0 0}
+#screen{background:#031009;color:var(--gr);font:14px/1.45 "Courier New",monospace;border:2px solid var(--ln);border-radius:6px;padding:.7rem;min-height:5.5rem;white-space:pre-wrap}
+#log{max-height:240px;overflow:auto;font:14px/1.4 "Courier New",monospace}
+#log div{padding:.2rem 0;border-bottom:1px dashed var(--ln)}
+.w{color:var(--am)}.b{color:var(--bad)}.g{color:var(--gr)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}td,th{border:1px solid var(--ln);padding:.3rem .5rem;text-align:left}
+dialog{background:var(--pn);color:var(--tx);border:2px solid var(--am);border-radius:10px;max-width:640px;width:calc(100% - 2rem);max-height:90vh}
+dialog::backdrop{background:#000a}
+.ev label{font-weight:400;display:flex;gap:.5rem;align-items:center;margin:.2rem 0}.ev input{width:auto}
+.os-item{border:1px solid var(--ln);border-radius:6px;padding:.7rem;margin-bottom:.7rem;break-inside:avoid}
+/* animações extras */
+@keyframes spin{to{transform:rotate(360deg)}}
+.fan{transform-box:fill-box;transform-origin:center;animation:spin 1s linear infinite;animation-play-state:paused}
+svg.on .fan{animation-play-state:running}svg.hot .fan{animation-duration:.25s}
+.heat{display:none}svg.hot .heat{display:inline;animation:heat .9s infinite}
+@keyframes heat{0%,100%{opacity:.1;transform:translateY(0)}50%{opacity:.9;transform:translateY(-8px)}}
+.mote{animation:drift 3s ease-in-out infinite}@keyframes drift{50%{transform:translate(6px,-10px);opacity:.3}}
+#lid{transition:opacity .4s}
+#pulse{fill:none;stroke:var(--gr);stroke-width:4;opacity:0;transform-box:fill-box;transform-origin:center}
+#pulse.go{animation:pl .8s ease-out}@keyframes pl{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(26)}}
+#screen{background-image:repeating-linear-gradient(0deg,#0000 0 2px,#0003 2px 3px)}
+#screen.fl{animation:fl .6s}@keyframes fl{0%{opacity:.2}30%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+#cap{min-height:1.6rem;color:var(--mu);font-size:.9rem;padding:.2rem 0}#cap.on{color:var(--am);font-weight:700}
+#fb.ok{border-color:var(--gr);animation:glow 1s 2}@keyframes glow{50%{box-shadow:0 0 28px var(--gr)}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+ :root{--bg:#fff;--pn:#fff;--tx:#000;--mu:#000;--ln:#888;--am:#000;--sl:#000;--gr:#000}
+ body{background:#fff;color:#000}header,#s-start,#s-queue,#s-bench,.noprint,dialog{display:none!important}
+ #s-report{display:block!important}.card{border:0}
+}
+</style>
+</head>
+<body>
+<header>
+ <h1>🔧 Bancada Real</h1>
+ <div id="stats" hidden aria-live="polite"></div>
+ <div class="bar">
+  <button id="bHC" aria-pressed="false">◐ Alto contraste</button>
+  <button id="bLupa" aria-pressed="false">🔍 Lupa de inspeção</button>
+  <button id="bSnd" aria-pressed="true">🔊 Sons</button><button id="bQ">📋 Chamados</button>
+  <button id="bRst">↺ Reiniciar</button>
+ </div>
+</header>
+<main>
+
+<!-- ===== Tela inicial ===== -->
+<section id="s-start" class="card">
+ <h2>Bancada Real: Simulador de Manutenção</h2>
+ <p>Diagnostique computadores com base em casos reais de assistência técnica. Sem cronômetro: o progresso é salvo automaticamente neste navegador.</p>
+ <label for="iName">Nome do estudante ou da dupla</label><input id="iName" maxlength="60" autocomplete="off">
+ <label for="iRole">Papel atual</label>
+ <select id="iRole"><option>Técnico de Bancada</option><option>Analista de OS</option></select>
+ <h3>Regras em uma página</h3>
+ <ul>
+  <li>Você começa com R$ 300,00 no caixa e 100% de reputação ética.</li>
+  <li>Investigue antes de trocar peças: teste, inspecione, só então repare.</li>
+  <li>Peças desnecessárias custam caixa e reputação.</li>
+  <li>Toda entrega exige uma Ordem de Serviço com justificativa técnica.</li>
+  <li>Cobre um valor justo, dentro do orçamento do cliente.</li>
+  <li>Errou? O Mestre Carlos explica e você refaz, sem bloqueio.</li>
+  <li>Tudo é por clique simples. Sons sempre têm texto e sinal visual.</li>
+ </ul>
+ <button class="pri" id="bGo">Iniciar Expediente</button>
+</section>
+
+<!-- ===== Fila de chamados ===== -->
+<section id="s-queue" hidden>
+ <h2>Painel de Chamados</h2><div id="qList"></div>
+ <button class="pri" id="bRep">Ver Relatório Final e Portfólio</button>
+</section>
+
+<!-- ===== Bancada ===== -->
+<section id="s-bench" hidden>
+ <div class="grid">
+  <aside>
+   <div class="card" id="ticket"></div>
+   <div class="card">
+    <button id="bMan" style="width:100%">📖 Consultar Manual Técnico</button><br><br>
+    <button id="bHint" style="width:100%">🧓 Pedir Dica ao Mestre Carlos</button>
+   </div>
+   <div class="card"><h3>Painel de diagnóstico</h3><div id="log" role="log" aria-live="polite"></div></div>
+  </aside>
+  <div>
+   <svg id="pc" viewBox="0 0 600 380" role="group" aria-label="Interior do gabinete do PC">
+    <rect x="10" y="10" width="580" height="360" rx="10" fill="#1b232c" stroke="#3b4755" stroke-width="3"/>
+    <rect x="30" y="25" width="420" height="335" rx="6" fill="#1f4a3a" stroke="#2f7a5c" stroke-width="2"/>
+    <g stroke="#2f9c74" stroke-width="1.5" fill="none" opacity=".6"><path d="M60 90h40v60h30M60 130h30M240 110h30M240 150h30v60M360 90h30v80h-30M60 240h200v40M300 250h120M100 330h300"/></g><rect x="320" y="250" width="44" height="44" rx="3" fill="#3a4552" stroke="#7d8da0"/><text class="fine" x="322" y="275" fill="#fff" font-size="8">CHIPSET</text><circle cx="60" cy="200" r="5" fill="#888"/><circle cx="60" cy="215" r="5" fill="#888"/><circle id="led" cx="55" cy="50" r="8"/><circle id="wave" cx="55" cy="50" r="20"/>
+    <text x="70" y="55" fill="#9fb0c0" font-size="11">LED POST</text>
+    <g class="fine"><circle cx="80" cy="300" r="7" fill="#aaa"/><circle cx="100" cy="300" r="7" fill="#aaa"/><circle cx="120" cy="300" r="7" fill="#aaa"/><text x="70" y="325" fill="#cfe" font-size="9">capacitores íntegros (sem estufamento)</text></g>
+    <g class="comp" data-c="cpu" data-box="90 70 200 180" tabindex="0" role="button" aria-label="Processador e cooler">
+     <rect x="110" y="90" width="130" height="130" rx="6" fill="#3a4552" stroke="#7d8da0" stroke-width="3"/>
+     <circle cx="175" cy="155" r="48" fill="#222b34" stroke="#7d8da0" stroke-width="3"/>
+     <g class="fan"><path d="M175 155l25-30M175 155l30 25M175 155l-25 30M175 155l-30-25" stroke="#7d8da0" stroke-width="10" stroke-linecap="round"/><circle cx="175" cy="155" r="8" fill="#10151a"/></g><path class="heat" d="M140 85q10-15 0-25M175 85q10-15 0-25M210 85q10-15 0-25" stroke="#ff5a3c" fill="none" stroke-width="4"/>
+     <g id="dust" display="none" fill="#b9b3a6" opacity=".75"><ellipse cx="150" cy="130" rx="22" ry="12"/><ellipse cx="200" cy="175" rx="26" ry="14"/><ellipse cx="170" cy="200" rx="30" ry="9"/><circle class="mote" cx="120" cy="100" r="2.5"/><circle class="mote" style="animation-delay:-1s" cx="230" cy="110" r="2"/><circle class="mote" style="animation-delay:-2s" cx="225" cy="205" r="3"/><text class="fine" x="115" y="235" fill="#ffd" font-size="9">poeira + pasta craquelada</text></g>
+    </g>
+    <g class="comp" data-c="ram" data-box="270 40 120 190" tabindex="0" role="button" aria-label="Memória RAM">
+     <rect x="290" y="60" width="22" height="140" fill="#2d5a9c" stroke="#7da7e8" stroke-width="2"/>
+     <rect x="330" y="60" width="22" height="140" fill="#2d5a9c" stroke="#7da7e8" stroke-width="2"/>
+     <rect x="290" y="196" width="22" height="10" fill="#d4af37"/><rect x="330" y="196" width="22" height="10" fill="#d4af37"/><g fill="#111"><rect x="293" y="75" width="16" height="20"/><rect x="293" y="105" width="16" height="20"/><rect x="293" y="135" width="16" height="20"/><rect x="333" y="75" width="16" height="20"/><rect x="333" y="105" width="16" height="20"/><rect x="333" y="135" width="16" height="20"/></g><path d="M292 197v8M297 197v8M302 197v8M307 197v8M333 197v8M338 197v8M343 197v8M348 197v8" stroke="#8a6d10"/><text class="fine" x="285" y="52" fill="#cde" font-size="9">DDR4 8GB 2666MHz</text>
+     <g id="ox" display="none" fill="#3f7d4e"><circle cx="297" cy="201" r="4"/><circle cx="306" cy="200" r="3"/><circle cx="337" cy="201" r="4"/><circle cx="346" cy="201" r="3"/><text class="fine" x="285" y="222" fill="#cfe" font-size="9">contatos oxidados</text></g>
+    </g>
+    <g class="comp" data-c="disk" data-box="450 25 140 80" tabindex="0" role="button" aria-label="Armazenamento HD ou SSD">
+     <rect x="465" y="35" width="110" height="55" rx="5" fill="#59616b" stroke="#aab4be" stroke-width="2"/><g id="hddG"><g class="fan"><circle cx="495" cy="62" r="20" fill="#2a2f36" stroke="#ccc"/><path d="M495 62l14-12" stroke="#ccc" stroke-width="3"/></g><path d="M545 45l-30 18" stroke="#e5c23a" stroke-width="3"/><text class="fine" x="468" y="100" fill="#fdd" font-size="8">HD 500GB 5400rpm · bad blocks</text></g><g id="ssdG"><rect x="480" y="45" width="80" height="35" fill="#1b2430" stroke="#6fa"/><rect x="490" y="52" width="16" height="12" fill="#111"/><rect x="512" y="52" width="16" height="12" fill="#111"/><text x="488" y="76" fill="#9fb0c0" font-size="9">SSD</text><text class="fine" x="468" y="100" fill="#cfe" font-size="8">SSD 480GB · saudável</text></g>
+    </g>
+    <g class="comp" data-c="psu" data-box="450 240 140 125" tabindex="0" role="button" aria-label="Fonte de alimentação">
+     <rect x="465" y="255" width="110" height="95" rx="5" fill="#3a3f46" stroke="#aab4be" stroke-width="2"/><circle cx="520" cy="302" r="28" fill="#222" stroke="#aab4be" stroke-width="2"/><g class="fan"><path d="M520 302v-24M520 302v24M520 302h-24M520 302h24" stroke="#aab4be" stroke-width="6" stroke-linecap="round"/></g><text class="fine" x="468" y="268" fill="#cde" font-size="8">500W · 12V/5V/3.3V</text><text x="492" y="345" fill="#fff" font-size="11">FONTE</text>
+    </g>
+    <g class="comp" data-c="cab" data-box="380 80 120 190" tabindex="0" role="button" aria-label="Cabos">
+     <path d="M465 270 C400 270 410 150 355 110" fill="none" stroke="#e5c23a" stroke-width="7"/><path d="M465 285 C420 250 440 110 465 70" fill="none" stroke="#e55" stroke-width="7"/>
+    </g>
+    <circle id="pulse" cx="300" cy="190" r="10"/><g id="lid"><rect x="20" y="15" width="570" height="350" rx="8" fill="#4a5764" fill-opacity=".93" stroke="#8fa0b3" stroke-width="3"/><text x="300" y="190" text-anchor="middle" fill="#fff" font-size="20">Tampa fechada: clique em “Abrir tampa”</text></g>
+   </svg>
+   <div class="tools">
+    <button id="tLid">🔩 Abrir tampa</button>
+    <button id="tZoom" hidden>🔎 Voltar à vista completa</button>
+    <h3>Testes</h3>
+    <button data-t="post">⚡ Ligar PC / Analisador POST</button>
+    <button data-t="therm">🌡 Monitor térmico e teste de estresse</button>
+    <button data-t="psu">🔋 Testador de fonte</button>
+    <button data-t="smart">💽 Diagnóstico S.M.A.R.T. e sistema</button>
+    <h3>Manutenção preventiva (tampa aberta para ações físicas)</h3>
+    <button data-a="clean">Limpa-contato (R$ 15)</button>
+    <button data-a="dust">Limpeza + pasta térmica (R$ 20)</button>
+    <button data-a="mal">Remover malware (R$ 10)</button>
+    <button data-a="bios">Atualizar BIOS via pendrive (R$ 10)</button>
+    <h3>Loja de peças</h3>
+    <button data-a="ram">RAM DDR4 (R$ 140)</button>
+    <button data-a="psu">Fonte ATX 500W (R$ 180)</button>
+    <button data-a="ssd">SSD 480GB (R$ 160)</button>
+    <button data-a="cooler">Cooler CPU (R$ 90)</button>
+   </div>
+   <div id="screen" aria-live="polite">Monitor desligado.</div><div id="cap" aria-live="polite"></div>
+   <button class="pri" id="bOS">📝 Preencher Ordem de Serviço e entregar PC</button>
+  </div>
+ </div>
+</section>
+
+<!-- ===== Relatório ===== -->
+<section id="s-report" hidden>
+ <h2>Portfólio de Aprendizagem</h2><div id="repBody"></div>
+ <button class="pri noprint" onclick="window.print()">🖨 Imprimir / Salvar Portfólio de OS (PDF)</button>
+</section>
+</main>
+
+<dialog id="man">
+ <h2>Manual Técnico</h2>
+ <h3>Seção 1: Códigos de bipe POST</h3>
+ <table><tr><th>Padrão</th><th>Significado</th></tr><tr><td>1 curto</td><td>POST concluído, tudo certo</td></tr><tr><td>3 curtos</td><td>Falha de memória RAM (contato ou módulo)</td></tr><tr><td>1 longo + 2 curtos</td><td>CPU não reconhecida / firmware incompatível</td></tr><tr><td>Contínuo</td><td>Fonte ou superaquecimento grave</td></tr></table>
+ <h3>Seção 2: Temperaturas e tensões</h3>
+ <table><tr><th>Item</th><th>Normal</th><th>Crítico</th></tr><tr><td>CPU ociosa</td><td>30–50 °C</td><td>-</td></tr><tr><td>CPU sob carga</td><td>60–85 °C</td><td>90 °C ou mais (desligamento)</td></tr><tr><td>12V / 5V / 3.3V</td><td>±5%: 11,4–12,6 / 4,75–5,25 / 3,14–3,47</td><td>Fora da faixa</td></tr></table>
+ <h3>Seção 3: Armazenamento e software</h3>
+ <p>Bad blocks e 100% de uso de disco indicam desgaste. Faça backup antes de trocar o disco. Adwares exigem remoção separada: trocar o disco não elimina o que foi copiado.</p>
+ <h3>Seção 4: BIOS e compatibilidade</h3>
+ <p>Soquete compatível não basta: a BIOS precisa listar a CPU. Atualize pelo pendrive da bancada, sem desligar a energia.</p>
+ <h3>Conduta</h3><p>Teste antes de trocar. Cobre pelo serviço realizado e não ultrapasse o orçamento combinado.</p>
+ <button onclick="this.closest('dialog').close()">Fechar</button>
+</dialog>
+
+<dialog id="osd">
+ <h2>Ordem de Serviço</h2>
+ <form id="osf">
+  <label for="hip">1. Hipótese inicial</label><input id="hip" name="hip" required maxlength="140">
+  <label>2. Evidências coletadas</label>
+  <div class="ev"><label><input type="checkbox" name="ev" value="vis">Inspeção visual dos componentes</label><label><input type="checkbox" name="ev" value="post">Analisador POST / bipes</label><label><input type="checkbox" name="ev" value="therm">Monitor térmico / estresse</label><label><input type="checkbox" name="ev" value="psu">Testador de fonte</label><label><input type="checkbox" name="ev" value="smart">S.M.A.R.T. e sistema</label></div>
+  <label for="cause">3. Causa raiz</label>
+  <select id="cause" name="cause" required><option value="">Selecione…</option>
+   <option value="ram_ox">Contatos da memória RAM oxidados</option><option value="ram_dead">Módulo de RAM queimado</option><option value="psu">Fonte de alimentação defeituosa</option><option value="therm">Superaquecimento: dissipador entupido e pasta ressecada</option><option value="hdd">HD mecânico degradado e adwares</option><option value="bios">BIOS desatualizada sem suporte à nova CPU</option><option value="cpu_dead">Processador novo defeituoso</option></select>
+  <label for="just">4. Justificativa técnica do reparo</label><textarea id="just" name="just" rows="3" required minlength="20"></textarea>
+  <label for="price">5. Valor final cobrado (R$)</label><input id="price" name="price" type="number" min="0" step="1" required>
+  <p><button class="pri">Fechar OS e rodar validação final</button> <button type="button" onclick="this.closest('dialog').close()">Voltar à bancada</button></p>
+ </form>
+</dialog>
+
+<dialog id="fb"><div id="fbBody"></div><p id="fbBtn"></p></dialog>
+
+<script>
+/* ===== Dados do jogo ===== */
+const K='bancada-real-v1',$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ACT={clean:{n:'Limpa-contato',c:15},dust:{n:'Limpeza + pasta térmica',c:20},mal:{n:'Remoção de malware',c:10},bios:{n:'Atualização de BIOS',c:10},ram:{n:'Pente RAM DDR4',c:140,p:1},psu:{n:'Fonte ATX 500W',c:180,p:1},ssd:{n:'SSD 480GB',c:160,p:1},cooler:{n:'Cooler CPU',c:90,p:1}};
+const PHYS=['clean','dust','ram','psu','ssd','cooler'];
+const CAUSES={ram_ox:'Contatos da RAM oxidados',ram_dead:'Módulo de RAM queimado',psu:'Fonte defeituosa',therm:'Superaquecimento (poeira e pasta ressecada)',hdd:'HD degradado e adwares',bios:'BIOS desatualizada',cpu_dead:'Processador defeituoso'};
+const CASES=[
+{id:1,t:'Liga, mas não dá vídeo',lv:'Nível 1: Triagem e Conexões',cl:'Mariana S. (Estudante)',bd:150,fair:[50,80],cause:'ram_ox',need:['clean'],man:'Seção 1 (bipes POST)',
+ sym:'“Apertei o botão de ligar hoje cedo, os coolers giram e as luzes acendem, mas a tela fica preta e ele dá 3 bipes curtos.”',
+ vis:{ram:'Contatos dourados com manchas escuras/esverdeadas: oxidação.'},
+ hints:['Bipes do POST são uma linguagem: cada padrão aponta um subsistema. Consulte a tabela do manual.','Memória funciona por contato elétrico. O que acontece com metal exposto ao ar e à umidade ao longo dos anos?','Antes de comprar peça nova, pergunte: o componente está queimado ou só com a conexão ruim? Qual é a intervenção mais barata e reversível?'],
+ concept:'Contatos oxidados criam resistência e a placa interpreta como memória ausente. Limpar o contato resolve sem gastar com peça.'},
+{id:2,t:'Desliga sozinho nos jogos',lv:'Nível 2: Gestão Térmica',cl:'Lucas M. (Designer/Gamer)',bd:200,fair:[70,100],cause:'therm',need:['dust'],man:'Seção 2 (temperaturas e tensões)',
+ sym:'“Uso o navegador por horas sem problemas, mas quando abro um jogo pesado o PC desliga do nada depois de 5 minutos.”',
+ vis:{cpu:'Dissipador entupido de poeira; pasta térmica ressecada e craquelada.'},
+ hints:['O problema aparece com o PC ocioso ou sob carga? Isso muda onde procurar.','Tensões estáveis na fonte a descartam? Compare com a faixa do manual e observe a temperatura sob estresse.','Calor sai por contato (pasta) e por fluxo de ar (dissipador). Se um falha, o que a proteção térmica faz?'],
+ concept:'Sob carga a CPU gera mais calor. Com dissipador obstruído e pasta seca, ela atinge o limite e a proteção térmica desliga o PC. A fonte estava saudável.'},
+{id:3,t:'Lentidão extrema e janelas abrindo sozinhas',lv:'Nível 3: Armazenamento e Software',cl:'Dona Helena (Comerciante)',bd:280,fair:[220,260],cause:'hdd',need:['ssd','mal'],man:'Seção 3 (armazenamento e software)',
+ sym:'“Meu computador demora quase 10 minutos para ligar e fica abrindo propagandas sozinho.”',
+ vis:{disk:'HD mecânico antigo, com ruído de leitura constante ao iniciar.'},
+ hints:['Lentidão ao ligar costuma envolver leitura de dados. Que teste mostra a saúde do armazenamento?','Dois problemas independentes podem coexistir: um de hardware e outro de software. Resolver só um basta?','Trocar o disco envolve dados do cliente. Que cuidado vem antes de remover o HD antigo?'],
+ concept:'O HD com bad blocks e 100% de uso causava a lentidão; os adwares eram um problema separado. Foram necessárias duas ações, com backup antes da troca.'},
+{id:4,t:'Comprei um processador novo e não dá boot',lv:'Nível 4: Compatibilidade e Firmware',cl:'Rafael T. (Entusiasta)',bd:150,fair:[60,90],cause:'bios',need:['bios'],man:'Seção 4 (BIOS e compatibilidade)',
+ sym:'“Comprei um processador novo compatível com o soquete da minha placa-mãe, instalei direitinho, mas o PC não inicia.”',
+ vis:{cpu:'Soquete sem pinos tortos, CPU bem assentada. Etiqueta da placa: BIOS v1.2.'},
+ hints:['Compatibilidade de soquete é necessária, mas será suficiente?','Placas-mãe têm um firmware que lista as CPUs que reconhecem. Leia com atenção a mensagem do analisador.','Atualizar firmware não exige peça nova. Qual ferramenta da bancada faz isso, e qual o risco de faltar energia no meio?']
+ ,concept:'O soquete era compatível, mas a BIOS v1.2 não conhecia a nova CPU. Atualizar para a v3.4 resolveu sem trocar nenhuma peça.'}];
+const DEF={ram:'Pentes bem encaixados, sem danos aparentes.',cpu:'CPU e cooler sem anomalias visíveis.',disk:'Disco bem fixado, sem danos externos.',psu:'Fonte sem estufamento, ventoinha livre.',cab:'Conectores firmes, sem fios descascados.'};
+const FIXED={ram:['clean','ram'],cpu:['dust','cooler'],disk:['ssd'],psu:['psu']};
+
+/* ===== Estado e persistência ===== */
+let S=null;
+try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
+if(!S||!S.name)S={name:'',role:'',cash:300,rep:100,badges:[],cases:{},os:[],cur:null,hc:false};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const cs=id=>S.cases[id]||(S.cases[id]={st:'new',ap:[],used:[],open:false,fails:0,wrong:false,hi:0,log:[]});
+const C=()=>CASES.find(c=>c.id===S.cur),has=(s,k)=>s.ap.includes(k);
+const fixed=(c,comp)=>(FIXED[comp]||[]).some(k=>has(cs(c.id),k));
+const boots=c=>{const s=cs(c.id);return c.id===1?(has(s,'clean')||has(s,'ram')):c.id===4?has(s,'bios'):true};
+const brl=n=>'R$ '+Number(n).toFixed(2).replace('.',',');
+
+/* ===== Telas ===== */
+function show(id){['start','queue','bench','report'].forEach(x=>$('#s-'+x).hidden=x!==id);$('#stats').hidden=id==='start';stats();window.scrollTo(0,0)}
+function stats(){$('#stats').innerHTML=`${esc(S.name)} · Caixa <span>${brl(S.cash)}</span> · Reputação <span>${S.rep}%</span>`;
+ document.documentElement.toggleAttribute('data-hc',!!S.hc);$('#bHC').setAttribute('aria-pressed',!!S.hc);$('#bSnd').setAttribute('aria-pressed',!S.mute)}
+function queue(){
+ $('#qList').innerHTML=CASES.map((c,i)=>{const s=cs(c.id),lock=i>0&&cs(CASES[i-1].id).st==='new';
+  return `<div class="card case"><div><b>Chamado #0${c.id}: ${c.t}</b><br><small>${c.lv} · ${c.cl} · Orçamento máx. ${brl(c.bd)}</small></div>
+  <div><span class="chip ${s.st==='done'?'done':''}">${{new:'Aberto',done:'Concluído',skipped:'Revisar depois'}[s.st]}</span>
+  <button class="pri" data-open="${c.id}" ${lock?'disabled':''}>${lock?'🔒 Conclua o anterior':s.st==='new'?'Atender':'Reabrir bancada'}</button></div></div>`}).join('');
+ $('#bRep').disabled=CASES.some(c=>cs(c.id).st==='new');show('queue')}
+function openCase(id){S.cur=id;const c=C(),s=cs(id);
+ $('#ticket').innerHTML=`<h3>Chamado #0${c.id}: ${c.lv}</h3><p><b>${c.cl}</b></p><p>${c.sym}</p><p>Orçamento máximo do cliente: <b>${brl(c.bd)}</b></p>`;
+ $('#screen').textContent='Monitor desligado.';$('#pc').classList.remove('on','hot');resetZoom();save();show('bench');draw()}
+function draw(){const c=C(),s=cs(c.id);
+ $('#lid').style.opacity=s.open?0:1;$('#lid').style.pointerEvents=s.open?'none':'auto';$('#tLid').textContent=s.open?'🔩 Fechar tampa':'🔩 Abrir tampa';
+ const hd=c.id===3&&!fixed(c,'disk');$('#hddG').setAttribute('display',hd?'':'none');$('#ssdG').setAttribute('display',hd?'none':'');$('#dust').setAttribute('display',c.id===2&&!fixed(c,'cpu')?'':'none');$('#ox').setAttribute('display',c.id===1&&!fixed(c,'ram')?'':'none');
+ $('#log').innerHTML=s.log.map(l=>`<div class="${l[1]}">${esc(l[0])}</div>`).join('');$('#log').scrollTop=1e5;
+ $$('[data-a]').forEach(b=>b.title=has(s,b.dataset.a)?'Já aplicado':'');stats()}
+function log(t,k=''){const s=cs(C().id);s.log.push([t,k]);if(s.log.length>60)s.log.shift();save();draw()}
+
+/* ===== Áudio + transdução visual ===== */
+let ac;const ctx=()=>ac=ac||new(window.AudioContext||window.webkitAudioContext)();
+function osc(f,d,ty='sine',v=.15,at=0,f2){if(S.mute)return;try{const a=ctx(),t=a.currentTime+at,o=a.createOscillator(),g=a.createGain();o.type=ty;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d)}catch(e){}}
+function noise(d,fq=1500,v=.2,at=0){if(S.mute)return;try{const a=ctx(),n=a.sampleRate*d,b=a.createBuffer(1,n,a.sampleRate),x=b.getChannelData(0);for(let i=0;i<n;i++)x[i]=Math.random()*2-1;const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain(),t=a.currentTime+at;s.buffer=b;f.type='bandpass';f.frequency.value=fq;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(f);f.connect(g);g.connect(a.destination);s.start(t)}catch(e){}}
+const tone=d=>osc(880,d,'square',.08);
+/* efeitos sonoros (sintetizados) + legenda visual/textual de cada som */
+const SFX={click:()=>osc(600,.05,'square',.04),lid:()=>{noise(.12,900,.3);osc(140,.15,'triangle',.2,.05)},clean:()=>{noise(.5,3500,.15);noise(.4,5000,.1,.2)},buy:()=>{osc(988,.1,'square',.1);osc(1319,.25,'square',.1,.1)},good:()=>[523,659,784,1047].forEach((f,i)=>osc(f,.2,'triangle',.15,i*.1)),bad:()=>osc(150,.4,'sawtooth',.15,0,90),boot:()=>{osc(200,.7,'sine',.1,0,800);noise(.8,400,.06)},off:()=>osc(600,.7,'sawtooth',.12,0,50),tick:()=>osc(1200,.03,'square',.04),meter:()=>[0,.1,.2].forEach(a=>osc(1000+a*2000,.05,'square',.05,a)),zoom:()=>osc(400,.12,'sine',.08,0,900),hint:()=>{osc(440,.12,'triangle',.1);osc(554,.2,'triangle',.1,.12)}};
+const CAP={lid:'clac metálico da tampa',clean:'fricção de limpeza (chiado suave)',buy:'caixa registradora: compra registrada',good:'melodia ascendente de sucesso',bad:'zumbido grave de erro',boot:'ventoinhas aceleram e o PC liga',off:'queda de tom: PC desligou',meter:'tiques rápidos do medidor',zoom:'zoom da lupa',hint:'sininho do Mestre Carlos'};
+let ct;const sfx=k=>{const c=CAP[k];if(c){$('#cap').textContent='🔈 [SOM]: '+c;$('#cap').classList.add('on');clearTimeout(ct);ct=setTimeout(()=>$('#cap').classList.remove('on'),2400)}SFX[k]&&SFX[k]()};
+const spark=()=>{const p=$('#pulse');p.classList.remove('go');requestAnimationFrame(()=>requestAnimationFrame(()=>p.classList.add('go')))};
+document.addEventListener('click',e=>{if(e.target.closest('button'))sfx('click')});
+function beep(p){let t=0;p.forEach(d=>{setTimeout(()=>{tone(d);$('#led').classList.add('on');$('#wave').classList.add('on');setTimeout(()=>{$('#led').classList.remove('on');$('#wave').classList.remove('on')},d*1000)},t);t+=d*1000+220})}
+const bipText=p=>{const l=p.filter(d=>d>.4).length,s=p.length-l;return[l?`${l} bipe${l>1?'s':''} longo${l>1?'s':''}`:'',s?`${s} bipe${s>1?'s':''} curto${s>1?'s':''}${s>1?' seguidos':''}`:''].filter(Boolean).join(' + ')}
+
+/* ===== Inspeção ===== */
+const NAMES={ram:'Memória RAM',cpu:'CPU / Cooler',disk:'Armazenamento',psu:'Fonte',cab:'Cabos'};
+function inspect(comp,g){const c=C(),s=cs(c.id);
+ if(!s.open){log('⚠ Abra a tampa para inspecionar os componentes.','w');return}
+ $$('.comp').forEach(x=>x.classList.toggle('sel',x===g));sfx(S.lupa?'zoom':'click');
+ const txt=(c.vis[comp]&&!fixed(c,comp))?c.vis[comp]:(fixed(c,comp)?'Limpo e funcional após a manutenção.':DEF[comp]);
+ if(!s.used.includes('vis'))s.used.push('vis');
+ if(S.lupa){$('#pc').setAttribute('viewBox',g.dataset.box);$('#pc').classList.add('zoomed');$('#tZoom').hidden=false}
+ log(`🔍 [INSPEÇÃO] ${NAMES[comp]}: ${txt}`,'g')}
+function resetZoom(){$('#pc').setAttribute('viewBox','0 0 600 380');$('#pc').classList.remove('zoomed');$('#tZoom').hidden=true}
+
+/* ===== Testes ===== */
+function used(k){const s=cs(C().id);if(!s.used.includes(k))s.used.push(k)}
+function test(t){const c=C(),s=cs(c.id),scr=$('#screen');used(t);scr.classList.remove('fl');void scr.offsetWidth;scr.classList.add('fl');
+ if(t==='psu'){sfx('meter');scr.textContent='TESTADOR DE FONTE\n12V: 12.1V  OK\n5V:  5.0V  OK\n3.3V: 3.3V  OK';log('🔋 [FONTE] 12V=12,1V · 5V=5,0V · 3,3V=3,3V (dentro da tolerância de ±5%)','g');return}
+ if(t==='post'){sfx('boot');$('#pc').classList.add('on');let p=[.15],msg='POST concluído. Sistema operacional carregando…';
+  if(c.id===1&&!boots(c)){p=[.15,.15,.15];msg='ERRO POST: falha de memória RAM.\nTela preta.'}
+  if(c.id===4&&!boots(c)){p=[.6,.15,.15];msg='ERRO POST: CPU não reconhecida\nVersão de BIOS desatualizada (v1.2, requer v3.4)'}
+  scr.textContent='ANALISADOR POST\n'+msg;setTimeout(()=>beep(p),900);log(`🔊 [ÁUDIO/POST]: ${bipText(p)}`,p.length>1?'w':'g');log('💡 [VISUAL]: LED POST da placa-mãe piscou '+p.length+'×','g');return}
+ if(!boots(c)){scr.textContent='O PC não inicializa. Resolva o erro de POST antes de testar o sistema.';log('⚠ PC não inicializa: rode o Analisador POST.','w');return}
+ if(t==='therm'){const hot=c.id===2&&!fixed(c,'cpu'),end=hot?98:62;$('#pc').classList.add('on');let v=38;scr.textContent='Teste de estresse iniciado…';
+  const iv=setInterval(()=>{v=Math.min(end,v+(hot?6:3));scr.textContent=`CPU sob carga: ${v} °C`+(v>=90?'  ⚠ CRÍTICO':'');
+   if(v>=75&&hot)$('#pc').classList.add('hot');sfx('tick');if(v>=end){clearInterval(iv);if(hot){sfx('off');$('#pc').classList.remove('on','hot');scr.textContent+='\nProteção térmica: PC DESLIGADO.';log('🌡 [TÉRMICO] CPU chegou a 98 °C e o PC desligou por proteção térmica.','b')}else log(`🌡 [TÉRMICO] CPU estável em ${end} °C sob carga (faixa normal).`,'g')}},350);return}
+ if(t==='smart'){sfx('meter');const hdd=c.id===3&&!has(s,'ssd'),mal=c.id===3&&!has(s,'mal');
+  const d=hdd?'HD mecânico em alerta (Bad Blocks / 100% de uso)':c.id===3?'SSD 480GB: saudável':'Disco saudável',m=mal?'14 adwares ativos':'0 ameaças';
+  scr.textContent=`S.M.A.R.T.\nDisco: ${d}\nSistema: ${m}`;log(`💽 [S.M.A.R.T.] ${d} · ${m}`,hdd||mal?'b':'g')}}
+
+/* ===== Ações de reparo ===== */
+function act(k){const c=C(),s=cs(c.id),a=ACT[k];
+ if(has(s,k)){log(`ℹ ${a.n} já foi aplicado.`,'w');return}
+ if(PHYS.includes(k)&&!s.open){log('⚠ Abra a tampa para a ação física.','w');return}
+ if(S.cash<a.c){log(`⚠ Caixa insuficiente para ${a.n} (${brl(a.c)}).`,'b');return}
+ S.cash-=a.c;s.ap.push(k);sfx(a.p?'buy':'clean');spark();
+ if(a.p&&!c.need.includes(k)){S.rep=Math.max(0,S.rep-15);s.wrong=true;setTimeout(()=>sfx('bad'),300);log(`❌ ${a.n} (${brl(a.c)}): peça sem necessidade comprovada. Reputação −15%.`,'b')}
+ else log(`✔ ${a.n} aplicado (−${brl(a.c)}).${k==='ssd'?' Backup dos dados feito antes da troca.':''}`,'g');draw()}
+
+/* ===== OS e avaliação ===== */
+function evaluate(e){e.preventDefault();const c=C(),s=cs(c.id),f=new FormData($('#osf'));
+ const ev=f.getAll('ev'),cause=f.get('cause'),price=+f.get('price'),fa=c.fair;
+ const bad=s.ap.filter(k=>ACT[k].p&&!c.need.includes(k)),miss=c.need.filter(k=>!has(s,k)),spent=s.ap.reduce((a,k)=>a+ACT[k].c,0);
+ const issues=[];
+ if(cause!==c.cause)issues.push('A causa raiz escolhida não explica as evidências. Releia os testes feitos.');
+ if(miss.length)issues.push(`O defeito persiste: falta ${miss.map(k=>ACT[k].n).join(' e ')}.`);
+ if(bad.length)issues.push(`Peça(s) íntegra(s) condenada(s): ${bad.map(k=>ACT[k].n).join(', ')}. Teste antes de trocar.`);
+ if(price>c.bd)issues.push(`Cobrança acima do orçamento máximo do cliente (${brl(c.bd)}): conduta antiética.`);
+ else if(price>fa[1])issues.push(`Valor abusivo: a faixa justa é ${brl(fa[0])} a ${brl(fa[1])}.`);
+ else if(price<fa[0])issues.push(`Valor abaixo do justo (${brl(fa[0])} a ${brl(fa[1])}): cobre ao menos custo e mão de obra.`);
+ const nots=ev.filter(x=>!s.used.includes(x)).map(x=>({vis:'inspeção visual',post:'POST',therm:'teste térmico',psu:'testador de fonte',smart:'S.M.A.R.T.'}[x]));
+ let h=`<h2>Boletim do Mestre Carlos</h2>`;
+ if(nots.length)h+=`<p class="w">Atenção: você marcou evidência(s) que não coletou: ${nots.join(', ')}.</p>`;
+ if(!issues.length){
+  const bdg=[];if(!s.fails)bdg.push('Olho Clínico');if((c.id===1||c.id===4)&&s.used.includes('post'))bdg.push('Caçador de Bipes');if(!s.wrong)bdg.push('Técnico Ético');
+  bdg.forEach(b=>{if(!S.badges.includes(b))S.badges.push(b)});S.cash+=price;s.st='done';sfx('good');spark();
+  S.os=S.os.filter(o=>o.id!==c.id);S.os.push({id:c.id,t:c.t,cl:c.cl,hip:f.get('hip'),ev,cause:CAUSES[cause],just:f.get('just'),price,spent,badges:bdg});
+  h+=`<p class="g"><b>Parabéns!</b> Diagnóstico correto e valor justo. Lucro: ${brl(price-spent)}.</p><p>${c.concept}</p><p>Badges: ${bdg.length?bdg.map(b=>'🏅 '+b).join(' · '):'nenhum neste caso'}</p>`;
+  $('#fbBtn').innerHTML='<button class="pri" id="fbQ">Próximo chamado</button>'}
+ else{s.fails++;sfx('bad');S.rep=Math.max(0,S.rep-(price>fa[1]?20:10));
+  h+=`<p class="b"><b>Ainda não está certo.</b> Reputação reduzida.</p><ul>${issues.map(i=>`<li>${i}</li>`).join('')}</ul><p>Consulte o Manual: <b>${c.man}</b>.</p>`;
+  $('#fbBtn').innerHTML='<button class="pri" id="fbR">Revisar Bancada e Refazer</button> <button id="fbS">Avançar mesmo assim</button>'}
+ $('#fbBody').innerHTML=h;$('#fb').className=issues.length?'':'ok';save();$('#osd').close();$('#fb').showModal();stats()}
+
+/* ===== Relatório ===== */
+function report(){const q=['Por que 3 bipes curtos não significam, por si só, “RAM queimada”?','Por que tensões normais na fonte não bastam para condenar ou absolver outros componentes?','Qual a diferença entre o problema de hardware e o de software no Caso #03?','Por que atualizar a BIOS pode ser melhor do que trocar a CPU?','Qual o risco de interromper uma atualização de BIOS?','Qual evidência separou a causa real das “armadilhas”?','Em que caso você gastou mais do que precisava? Como evitar?','Como justificar um valor ao cliente sem abusar da confiança dele?','Que seção do manual você mais consultou e por quê?'];
+ $('#repBody').innerHTML=`<p><b>${esc(S.name)}</b> (${esc(S.role)}) · Caixa final ${brl(S.cash)} · Reputação ${S.rep}%</p>
+ <p>Badges: ${S.badges.length?S.badges.map(b=>'🏅 '+esc(b)).join(' · '):'ainda nenhum'}</p>`+
+ S.os.map(o=>`<div class="os-item"><b>OS #0${o.id}: ${esc(o.t)}</b> (${esc(o.cl)})<br>Hipótese: ${esc(o.hip)}<br>Evidências: ${o.ev.join(', ')||'-'}<br>Causa raiz: ${esc(o.cause)}<br>Justificativa: ${esc(o.just)}<br>Cobrado: ${brl(o.price)} · Custos: ${brl(o.spent)}</div>`).join('')+
+ `<h3>Autoavaliação</h3><ol>${q.map(x=>`<li>${x}<br><br></li>`).join('')}</ol>`;show('report')}
+
+/* ===== Eventos ===== */
+$('#bGo').onclick=()=>{const n=$('#iName').value.trim();if(!n){$('#iName').focus();return}S.name=n;S.role=$('#iRole').value;save();queue()};
+$('#bQ').onclick=()=>S.name?queue():0;$('#bSnd').onclick=()=>{S.mute=!S.mute;save();stats()};$('#bRep').onclick=report;
+$('#bHC').onclick=()=>{S.hc=!S.hc;save();stats()};
+$('#bLupa').onclick=e=>{S.lupa=!S.lupa;e.currentTarget.setAttribute('aria-pressed',!!S.lupa);if(!S.lupa)resetZoom()};
+let rc=0;$('#bRst').onclick=e=>{if(!rc){rc=1;e.currentTarget.textContent='Confirmar reinício?';setTimeout(()=>{rc=0;$('#bRst').textContent='↺ Reiniciar'},4000);return}
+ try{localStorage.removeItem(K)}catch(x){}location.reload()};
+$('#qList').onclick=e=>{const b=e.target.closest('[data-open]');if(b)openCase(+b.dataset.open)};
+$('#tLid').onclick=()=>{const s=cs(C().id);s.open=!s.open;sfx('lid');if(!s.open)resetZoom();save();draw()};
+$('#tZoom').onclick=resetZoom;
+$$('.comp').forEach(g=>{g.onclick=()=>inspect(g.dataset.c,g);g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();inspect(g.dataset.c,g)}}});
+$$('[data-t]').forEach(b=>b.onclick=()=>test(b.dataset.t));$$('[data-a]').forEach(b=>b.onclick=()=>act(b.dataset.a));
+$('#bMan').onclick=()=>$('#man').showModal();
+$('#bHint').onclick=()=>{const c=C(),s=cs(c.id);sfx('hint');log('🧓 [Mestre Carlos] '+c.hints[s.hi%3],'w');s.hi++;save()};
+$('#bOS').onclick=()=>{$('#osf').reset();$('#osd').showModal()};
+$('#osf').onsubmit=evaluate;
+$('#fb').onclick=e=>{const id=e.target.id;if(!id)return;const c=C(),s=cs(c.id);
+ if(id==='fbR'){s.ap.filter(k=>ACT[k].p&&!c.need.includes(k)).forEach(k=>{S.cash+=ACT[k].c;s.ap=s.ap.filter(x=>x!==k)});s.wrong=s.wrong;log('↺ Peças desnecessárias devolvidas ao fornecedor (reembolso). Reveja os testes.','w');$('#fb').close();draw()}
+ if(id==='fbS'){s.st='skipped';save();$('#fb').close();queue()}
+ if(id==='fbQ'){$('#fb').close();queue()}};
+$('#iName').value=S.name;if(S.name){$('#iRole').value=S.role;$('#bGo').textContent='Continuar Expediente'}
+stats();if(S.name)queue();else show('start');
+</script>
+</body>
+</html>
